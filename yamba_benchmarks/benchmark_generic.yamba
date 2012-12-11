@@ -1,0 +1,20 @@
+
+yamba benchmark_generic
+{
+
+	/* time_query is a specific type of bitstring. (The stuff in between
+	 * the angle brackets refine the bitstring type).  Specifically,
+	 * time_query is a bitstring that is callable as a C function.
+	 * The C function must return void (it must not return anything) and
+	 * it argument list  to the function must be "equivlanent" to equivalent to 
+	 * "(void ** results)."
+	 */
+	bitstring<void c_function(void ** results)> time_query_function;
+	
+	/* Time-query functions always have the following signature: 
+		 *     void function(void *)
+		 */
+	bitstring tq_prologue = prologue_ret_void_take_pointer;	
+	bitstring tq_epilogue = epilogue_ret_void_take_pointer;
+
+};

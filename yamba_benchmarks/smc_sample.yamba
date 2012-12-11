@@ -1,0 +1,104 @@
+
+scope generic
+{
+	scope smc
+	{
+		bitstring mov_nop_to_addr(bitstring-pointer-size address);
+	
+		bitstring smc_unit = 
+		{
+			mov_nop_to_addr(cast_ptr(target_address))	// change bad_nop to a no-op
+			sync					// invalidate the instruction cache
+			:target_address: bad_nop			// an invalid instruction containing the same number of bits as nop
+		};
+	
+		bitstring smc_program(int n) =
+		{
+			prologue
+			smc_unit * n
+			epilogue
+		};
+	};
+}
+
+scope x86_32
+{
+	bitstring prologue =
+	{
+		55	// push ebp
+		89E5	// mov ebp,esp
+		60	// pusha
+		31C0	// xor eax,eax
+		31DB
+		31C9
+		31D2
+	};
+	
+	bitstring epilogue =
+	{
+		61	// popa
+		C9	// leave
+		C3	// ret
+	};
+
+	bitstring cpuid = 
+	{ 
+		0fa2 
+	};
+	
+	
+	bitstring mov_byte_to_addr(bitstring-32 addr, bitstring-8 byte) = {
+		c605 addr byte
+	};
+	
+	bitstring-8 nop =
+	{
+		90
+	};
+	
+	bitstring-8 breakpoint =
+	{
+		cc
+	};
+
+	scope smc
+	{
+
+		bitstring sync = cpuid;
+	
+		bistring bad_nop = breakpoint;
+	
+		bitstring mov_nop_to_addr(bitstring bpt_address) =
+		{
+			mov_byte_to_addr(bpt_address, nop)
+		};
+
+
+		bitstring smc_unit = 
+		{
+			mov_byte_to_addr(cast32(bpt_address), nop)
+			sync
+
+			:bpt_address: breakpoint
+		};
+		
+
+		bitstring smc_unit_2 = 
+		{
+			mov_byte_to_addr(cast32(bpt_address), nop)
+			sync
+
+			:bpt_address: breakpoint
+		};
+		
+		bitstring smc_program = generic::smc::smc_program;
+	};
+};
+
+// c-code
+int main()
+{
+	compile(yamba->x86_32->smc->smc_program);
+	
+	return 0;
+}

@@ -1,0 +1,20 @@
+
+/* First, some C code */
+
+void tq_gettimeofday(struct timeval ** result)
+{
+	gettimeofday(*result, NULL);
+	*result += 1;
+}
+
+/* Now some Yamba code */
+
+yamba posix
+{
+	mixin(compiler_generic);
+	
+	bitstring call_tq_gettimeofday(struct timeval ** result)
+	{
+		tq_call(tq_gettimeofday, result)
+	}
+};

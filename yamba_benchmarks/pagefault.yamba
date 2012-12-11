@@ -1,0 +1,112 @@
+
+yamba Y-pagefault_generic 
+{
+	bitstring prologue;
+	bitstring epilogue;
+		
+	/* bitstring init_touch
+	 * Guide: register1 <-- first_page
+	 * (first_page will be passed to pagefault_program as the second paramater)
+	 */
+	bitstring init_touch;
+
+	/* bitstring touch
+	 *	A function that returns machine code that ``touches" 
+	 * 	a memory location. The ``touch" should have the 
+	 * 	effect that: if the specified memory location is paged 
+	 *	out, then the memory access (the touch) should cause 
+	 *	a pagefault and the memory is paged in.
+	 *
+	 * Guide:  register2 <-- [register1 + offset]
+	 * 	Where offset = page_index * page_size
+	 */
+	bitstring touch(unsigned int page_index);			
+	
+	/* bitstring pagefault_program
+	 *	A function that returns the machine code for a function 
+	 * 	that contains n touches, beginning at the first_page.
+	 *	time_query is optional (let it be a zero-length bitstring
+	 *	if you want to do external time queries).  If time_query
+	 *	is non-zero sized, then it follow the time_query call format.
+	 */ 
+	
+	/* returns a particular type of bitstring:
+	 * a bitstring that is callable as C-function with the following signature:
+	 *     void c_function(void **, byte_t *) 
+	 */
+	bitstring<void c_function(void ** results, byte_t * first_page)>
+		pagefault_program_tq(
+				unsigned int n, 		/* number of touches*/ 
+				bitstring time_query)	/* call to time_query_function. */
+	{
+		prologue
+		init_touch				 
+		time_query
+		repeat(unsigned int i = 0; i < n; i++)
+		{
+			touch(i)
+		}
+		time_query
+		epilogue
+	}
+	
+	/* Same as pagefault_tq_program, but without time queries. */
+	bitstring<void c_function(void ** results, byte_t * first_page)>
+		pagefault_program(unsigned int n)
+	{
+		pagefault_program_tq(n, nil);
+	}
+};
+
+/* Hierarchy:
+ *                 generic
+ *               /        \
+ *  pagefault_generic    x86_32
+ *               \        /
+ *            pagefault_x86_32
+ *
+ * Diamond problem: No. pagefault_generic does not override any generic objects.
+ *	x86_32 overrides several generic objects.  There are no ambiguities.
+ *	When pagefault_generic uses objects declared in generic, they are
+ *	defined by x86_32.
+ *	If there were ambiguities, then pagefault_x86_32 would need to 
+ *	explcitly resolve them by naming (e.g. x86_32::foo or 
+ *	pagefault_generic::foo).
+ *
+ * In general, clashes will tend not to happen because it won't often makes
+ * semantic sense to create collisions.  (e.g. it is not a coincidence that 
+ * x86_32 and pagefault_generic do not have collisions--it is because they
+ * do different things)
+ */
+yamba pagefault_x86_32 extends Y-pagefault_generic
+{	
+	include(compiler_x86_32);
+
+	bitstring prologue
+	{
+		compiler_x86_32.prologue_standard
+		yasm { push ebx }
+	}
+	
+	bitstring epilogue
+	{
+		yasm { pop ebx }
+		compiler_x86_32.epilogue_standard
+	}
+	
+	/* register 1 == ebx */
+	bitstring init_touch
+	{
+		yasm
+		{
+			mov ebx, [ebp + 0x12]	# ebx <-- first_page
+		}
+	}
+	
+	/* register 2 == eax */
+	bitstring touch(unsigned int page_index) 
+	{
+		/* mov eax, [ebx + offset] */
+		0x8B83 cast_immediate_32(page_index * page_size)
+	}
+};

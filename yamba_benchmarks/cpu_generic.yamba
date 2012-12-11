@@ -1,0 +1,88 @@
+ 
+yamba generic_cpu
+{
+	/* field declarations (and one definition)
+	 **************************************************************************/
+	
+	/* the number of bits in a byte */
+	bitstring_size byte_size;
+
+	/* the number of bits in a pointer */
+	bitstring_size pointer_size;
+
+	/* number of bits in a page */
+	bitstring_size page_size;
+	
+	/* the empty bitstring */
+	bitstring nil{}
+
+	/* Cast-function declarations  (and some definitions)
+	 **************************************************************************/
+	
+	/* a function that translates a C pointer into a bitstring */
+	bitstring<pointer_size> cast_pointer(void * p);
+
+	/* cast a 32-bit integer into a 32-bit little-endian bitstring */
+	bitstring<32 bits> cast_32_l_endian(int32 value)
+	{
+		/* this implementation currently assumes 8-bit bytes.
+		 * need to rewrite it for arbitrary sized-bytes.
+		 */
+		cast<32 bits>
+		{
+			byte_array[0] = value & 0xFF;
+			byte_array[1] = value >> 8  & 0xFF;
+			byte_array[2] = value >> 16 & 0xFF;
+			byte_array[3] = value >> 24 & 0xFF;
+		}
+	};
+	
+	/* cast a 32-bit integer into a 32-bit big-endian bitstring */
+	bitstring<32> cast_32_b_endian(int32 value)
+	{
+		/* this implementation currently assumes 8-bit bytes.
+		 * need to rewrite it for arbitrary sized-bytes.
+		 */
+		cast<32>
+		{
+			byte_array[0] = value >> 24 & 0xFF;
+			byte_array[1] = value >> 16 & 0xFF;
+			byte_array[2] = value >> 8  & 0xFF;
+			byte_array[3] = value & 0xFF;
+		}
+	};
+	
+	/* Misc declarations
+	 **************************************************************************/
+
+	bitstring call_ret_void_take_pointer(void * function, void * argument);
+
+	/* Machine code to make a call to a time-query function. All tq functions 
+	 * have the same signature and have the same basic semantics.
+	 * 
+	 * signature: void tq_function(result_type ** result)
+	 * 
+	 * semantics: 
+	 *      (1) take a time query
+	 *      (2) store the result in (*result)[0]
+	 *      (3) increment *result
+	 *      
+	 * Say you had a yamba program that needed to make 10 time queries. You 
+	 * would prepare an array for the results:
+	 *      result_type results[10];
+	 *      result_type * result_ptr = results;
+	 *  Then each tq_function(&result_ptr) call would store the time query in 
+	 *  results, and increment result_ptr for the next time query.
+	 *
+	 *  Note: You can do perfect overflow-detection by checking for the 
+	 *  overwrite of a sentinel.  Since I don't want bounds checking to 
+	 *  interfere with timing, I'll have two versions of time-query functions,
+	 *  safe and unsafe.  Safe is used for testing benchmarks, but not for 
+	 *  doing real measurements.  Once you've verified the safety, you 
+	 *  then call the unsafe time-query. (This is perfect, assuming that the 
+	 *  number of time-queries is deterministic) 
+	 */
+	bitstring = tq_call(void * tq_function, void * result_reference) = 
+			call_ret_void_take_pointer(tq_function, result_reference);
+	
+};

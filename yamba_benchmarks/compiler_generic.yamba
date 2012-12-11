@@ -1,0 +1,24 @@
+
+/* Calling conventions for interfacing with C programs.*/
+
+yamba compiler_generic
+{
+	bitstring prologue_standard;
+	bitstring epilogue_standard;
+
+	/* for functions with the following signature:
+	 *     void function(void *)
+	 */
+	bitstring prologue_ret_void_take_pointer;
+	bitstring epilogue_ret_void_take_pointer;
+	bitstring call_ret_void_take_pointer(void * function, void * argument);
+
+	/* Time-query functions always have the following signature: 
+	 *     void function(void *)
+	 */
+	bitstring tq_prologue = prologue_ret_void_take_pointer;	
+	bitstring tq_epilogue = epilogue_ret_void_take_pointer;
+	bitstring tq_call(void * function, void * argument) = 
+			call_ret_void_take_pointer;
+	
+}

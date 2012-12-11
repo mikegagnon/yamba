@@ -1,0 +1,75 @@
+
+/* For x86_32, Yamba assumes the C compiler uses the cdecl calling convention.
+ * 
+ * The validity of this assumption is only relevant for when:
+ *      1. Yamba machine code calls a C-compiler-generated C function
+ *      2. C-compiler-generated code calls Yamba-machine-code functions
+ * 
+ * (The assumption is irrelvant when Yamba-machine-code calls other
+ * Yamba machine code because all Yamba machine code expects cdecl.  Also
+ * C-to-C calls will always work because they are always handled by the 
+ * compiler).
+ * 
+ * In principle, Yamba can handle violations of this assumption by setting
+ * up "trampolines." A trampoline is simple a function that acts an 
+ * intermediary between two functions that use different calling conventions.
+ * The trampolines should be written in C using inline assembly.
+ * 
+ * Trampolines are not ideal because they perform unnncessary computations.
+ * If your compiler supports giving functions the cdecl attribute
+ * (probably looks something like __cdecl__), then Yamba-interfacing functions
+ * should be declared as cdecl.  This applies to bath Yamba-machine-code
+ * functions and C-compiled functions.
+ */
+
+yamba compiler_x86_32
+{
+	include(compiler_generic);
+	include(cpu_x86_32);
+	
+	yasm = gas_x86_32_intel_style; 
+	
+	bitstring prologue_standard
+	{
+		yasm
+		{
+			push ebp
+			mov ebp, esp
+		}
+	};
+	
+	bitstring epilogue_standard
+	{
+		yasm
+		{
+			pop ebp
+			ret
+		}
+	};
+	
+	/* for functions with the following signature:
+	 *     void function(void *)
+	 */
+	bitstring prologue_ret_void_take_pointer = prologue_standard;
+	bitstring epilogue_ret_void_take_pointer = epilogue_standard;
+	
+	/* for functions with the following signature:
+	 *     void function(void *)
+	 * 
+	 * equivalent to calling: function(argument).
+	 * 
+	 * This machine code is good, reglardless of the compiler because it
+	 * uses cdecl (even if the the compiler doesn't use cdecl).
+	 * The compiler only matters when Yamba-machine-code needs to call 
+	 * C-functions or C-code needs to call Yamba-machine-code functions
+	 */
+	bitstring call_ret_void_take_pointer(void * function, void * argument) 
+	{				
+		/* push argument*/
+		0x68 cast_pointer(argument)
+		call_relative (function)
+	}
+	
+	
+	
+}

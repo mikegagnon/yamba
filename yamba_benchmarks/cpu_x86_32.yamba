@@ -1,0 +1,90 @@
+
+yamba x86_32
+{
+	include(cpu_generic);
+	include(compiler_generic);
+	
+	yasm = gas_x86_32_intel_style; 
+
+	/* field definitions 
+	 **************************************************************************/
+	
+	bitstring_size byte_size = 8 bits;
+
+	bitstring_size pointer_size = 32 bits;
+	
+	/* pages are usually 4 kB */
+	bitstring_size page_size = 4 kBytes;
+		
+	/* Cast-function definitions 
+	 **************************************************************************/
+		
+	bitstring<pointer_size> cast_pointer(void * pointer) 
+	{
+		cast_32_l_endian((int32) pointer)
+	}
+	
+	bitstring<32 bits> cast_immediate_32(int32 immediate) 
+	{
+		cast_32_l_endian(immediate)
+	}
+	
+	/* Machine-code definitions
+	 **************************************************************************/
+	
+	
+	/* GCC Alert: GCC suports pointer subtraction. Is this 
+	 * operation undefined in C99?
+	 * 
+	 * Assume we really wanted Yamba to be compiler independent.  No biggie-d.
+	 * We could define a Yamba machine-code function that does pointer 
+	 * arithmetic for us. Then "function - next_instruction" would be replaced
+	 * with a call to our own function.
+	 */
+	bitstring call_relative(void * function)
+	{
+		0xe8 cast_pointer(function - next_instruction)
+		
+		:next_instruction:
+	}
+	
+	/* Specialized time-query function definitions
+	 **************************************************************************/
+		
+	/* tq_rdtsc is intended to be callable by Yamba machine code and
+	 * C-compiled machine code.  Thus this machine-code function exports
+	 * a C interface.
+	 * 
+	 * As usual for x86_32, tq_rdtsc expects a cdecl calling convention. If your
+	 * compiler doesn't do cdecl by default, you must do something about it
+	 * (see compiler_x86_32.yamba).
+	 * 
+	 */
+	bitstring<callable.ret = "void",
+	          callable.arg_equiv[1] = "void ** results",
+			  callable.arg[1] = "uint64_t ** results">
+		tq_rdtsc 
+	{
+		tq_prologue
+		
+		yasm
+		{
+			push ebx
+			
+			mov ebx, [ebp + 0x8]
+			mov ebx, [ebx]
+			rdtsc
+			mov [ebx + 0x4], edx
+			mov [ebx], eax
+			mov ebx, [ebp + 0x8]
+			mov ebx, [ebx]
+			lea edx, [ebx + 0x8]
+			mov ebx, [ebp + 0x8]
+			mov [ebx], edx
+			
+			pop ebx
+		}
+		
+		tq_epilogue
+	}
+}
